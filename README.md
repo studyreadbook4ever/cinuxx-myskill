@@ -1,3 +1,5 @@
+만든이유: 코덱스 토큰 다쓰려면 goal 돌려놓고 자는거 많이해야하는데.. 경제보복 해야하는데.. 이게 너무 꼬임.. 
+
 # cinuxx (mySkill)
 
 `ciduxx` is an explicit-invocation Codex skill and Linux supervisor for deep program-improvement loops:
