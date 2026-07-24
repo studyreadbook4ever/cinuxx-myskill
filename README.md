@@ -2,7 +2,8 @@
 
 # cinuxx (mySkill)
 
-`ciduxx` is an explicit-invocation Codex skill and Linux supervisor for deep program-improvement loops:
+`ciduxx` is an explicit-invocation Codex skill, a vendor-neutral visual AI
+change log, and a Linux supervisor for deep program-improvement loops:
 
 ```text
 inspect -> implement -> verify -> independently audit -> repair -> repeat
@@ -17,6 +18,8 @@ It is designed for long-running, high-reasoning work rather than short answers. 
 - Uses native Codex Goal mode interactively or a `codex exec` supervisor that resumes the exact worker thread between repair iterations.
 - Defaults to 24 work/verify/fix iterations, `xhigh` reasoning, and two fresh read-only completion auditors.
 - Records material branches as readable `A: ...`, `B: ...` Markdown with evidence and rollback notes.
+- Maintains one self-contained `AI_CHANGELOG.html` where human requests and
+  verified semantic outcomes appear as a readable conversation.
 - Persists supervisor state outside the project under `${XDG_STATE_HOME:-$HOME/.local/state}/ciduxx`.
 - Anchors real-power authorization to the OS account home's fixed `.local/state/ciduxx` path, ignoring caller-controlled `HOME` and `XDG_STATE_HOME` values.
 - Uses bounded runtime, stagnation detection, atomic state, workspace locks, and exact session UUID resume.
@@ -59,6 +62,77 @@ For an interactive session, combine Codex persistence with the ciduxx completion
 
 `$ciduxx` alone does not authorize host shutdown. State power intent explicitly and use a registered group when shutdown is desired.
 
+## Visual AI Change Log
+
+`AI_CHANGELOG.html` is a self-contained semantic exhibit for AI-assisted work.
+Each actionable human modification request appears on the left, and one or more
+verified outcome summaries appear on the right.
+
+It is not release notes, a code diff, a tool log, or a full chat transcript. The
+exhibit stores only display-safe request text and behaviorally meaningful
+outcomes. Its canonical JSON, static no-JavaScript presentation, and CSS skin
+live in one commit-friendly HTML file. It opens directly from `file://` and
+needs no server, CDN, build step, or sidecar.
+
+Create the project-root opt-in file:
+
+```bash
+ciduxx exhibit init --title "Project AI Change Log"
+```
+
+Generate portable project instructions for Codex or Claude Code:
+
+```bash
+ciduxx exhibit instructions --agent codex
+ciduxx exhibit instructions --agent claude
+```
+
+Place the generated instructions in the project guidance read by the chosen
+agent, such as `AGENTS.md` or `CLAUDE.md`. These are one-time setup actions.
+During normal work the coding agent owns exhibit updates: after implementing
+and verifying a human request, it appends the safe request and all verified
+semantic outcomes as one grouped turn. A human does not transcribe work while
+it happens.
+
+The cross-client structured command is:
+
+```bash
+ciduxx exhibit record --file AI_CHANGELOG.html --payload -
+```
+
+It accepts one UTF-8 JSON object on standard input, so long or multilingual
+content does not depend on shell quoting. For a deliberately visible long task,
+an agent can use `exhibit begin` followed by `exhibit answer`; normal work
+should prefer atomic `exhibit record` so failed or unchanged work does not
+leave a pending entry.
+
+Validate a finished exhibit with:
+
+```bash
+ciduxx exhibit validate --require-answered
+```
+
+Treat the exhibit as public repository content. Never include credentials,
+private paths, hidden prompts, chain-of-thought, raw logs, patch hunks, plans,
+guesses, or failed attempts. `redacted: true` and `--redacted` only label a
+safe paraphrase already supplied by the agent; they do not sanitize text.
+
+### CSS skins
+
+Content and presentation are independent inside the same HTML file. Apply a
+UTF-8 CSS skin without changing conversation turns:
+
+```bash
+ciduxx exhibit skin --css-file theme.css --name theme-name
+ciduxx exhibit skin --builtin default
+```
+
+The embedded skin block is preserved across future records. External network
+assets are blocked by the page security policy; use local styling or data URLs.
+See [the semantic exhibit protocol](skills/ciduxx/references/exhibit-protocol.md)
+for the JSON contract, stable selectors and variables, format markers, and
+Claude/Codex workflow.
+
 ## Headless Deep Loop
 
 Inspect prerequisites first:
@@ -87,6 +161,26 @@ ciduxx run \
 ```
 
 Dirty worktrees are refused by default. Review existing changes and add `--allow-dirty` only when in-place work is intentional. Ciduxx never resets, cleans, stashes, commits, pushes, or merges worker changes by itself.
+
+### Managed exhibit recording
+
+If `AI_CHANGELOG.html` already exists at the workspace root, `ciduxx run`
+detects it automatically. Use `--exhibit-file` to opt in explicitly and create
+a missing exhibit after verified work, or `--no-exhibit` to disable recording:
+
+```bash
+ciduxx run \
+  --workspace /absolute/path/to/repo \
+  --objective "Improve the import workflow" \
+  --exhibit-file AI_CHANGELOG.html
+```
+
+The worker returns a display-safe request and the complete final list of
+verified outcomes; the supervisor performs one idempotent write after coherent
+finalization. Completed work is `answered`; durable incomplete work is
+`partial`. Generated resume commands carry a logical task key, so a later run
+updates that partial turn instead of duplicating the same human request.
+Failed, cancelled, and unchanged work is not presented as a completed change.
 
 ## Several Codex Windows, One Shutdown
 
@@ -165,7 +259,14 @@ shutdown -c
 
 ## Output
 
-Human-readable reports are written to:
+The optional tracked visual artifact is:
+
+```text
+AI_CHANGELOG.html
+```
+
+It is intentionally separate from ignored supervisor diagnostics. Human-readable
+managed-run reports are written to:
 
 ```text
 .ciduxx/runs/<run-id>/
@@ -196,4 +297,7 @@ SKILL_VALIDATOR=/path/to/skill-creator/scripts/quick_validate.py
 uv run --with pyyaml python "$SKILL_VALIDATOR" skills/ciduxx
 ```
 
-See [the loop protocol](skills/ciduxx/references/protocol.md) and [Linux shutdown safety model](skills/ciduxx/references/linux-safety.md) for the full state and trust contracts.
+See [the semantic exhibit protocol](skills/ciduxx/references/exhibit-protocol.md),
+[loop protocol](skills/ciduxx/references/protocol.md), and
+[Linux shutdown safety model](skills/ciduxx/references/linux-safety.md) for the
+full data, state, and trust contracts.

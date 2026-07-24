@@ -17,6 +17,7 @@ SCRIPT_DIR = REPO_ROOT / "skills" / "ciduxx" / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import ciduxx as ciduxx_cli  # noqa: E402
+import ciduxx_exhibit as exhibit  # noqa: E402
 
 from ciduxx_core import (  # noqa: E402
     GroupStore,
@@ -621,11 +622,14 @@ class RunnerIntegrationTests(unittest.TestCase):
                             "evidence": ["fixture inspected"],
                         }
                     else:
+                        pathlib.Path("program.txt").write_text(
+                            "stable\\nstatus: ready\\n", encoding="utf-8"
+                        )
                         payload = {
                             "schema_version": 1,
                             "status": "completed",
-                            "summary": "objective verified",
-                            "progress": ["inspected fixture"],
+                            "summary": "status line added and verified",
+                            "progress": ["added the requested status line"],
                             "verification": [{"command": "inspect", "outcome": "passed"}],
                             "decisions": [{
                                 "status": "AUTO-DECIDED",
@@ -635,15 +639,20 @@ class RunnerIntegrationTests(unittest.TestCase):
                                     {"label": "B", "text": "Replace the fixture"},
                                 ],
                                 "chosen": "A",
-                                "basis": "The current fixture is already verified.",
-                                "evidence": ["program.txt is stable"],
-                                "action": "Keep the fixture.",
+                                "basis": "A concise status line satisfies the objective.",
+                                "evidence": ["program.txt contains status: ready"],
+                                "action": "Add the status line.",
                                 "rollback": "Restore the prior fixture if needed.",
                                 "revisit_when": "The fixture becomes unstable.",
                             }],
-                            "completion_evidence": ["program.txt is stable"],
+                            "completion_evidence": ["program.txt contains status: ready"],
                             "remaining": [],
                             "next_prompt": "",
+                            "display_request": "Add a clear readiness status to the fixture program.",
+                            "display_request_redacted": False,
+                            "display_changes": [
+                                "Added a clear ready status to the fixture output."
+                            ],
                         }
                     output.write_text(json.dumps(payload), encoding="utf-8")
                     print(json.dumps({"type": "thread.started", "thread_id": "00000000-0000-0000-0000-000000000001"}))
@@ -662,7 +671,7 @@ class RunnerIntegrationTests(unittest.TestCase):
                 "--workspace",
                 str(repo),
                 "--objective",
-                "Verify the fixture program.",
+                "Add a clear readiness status to the fixture program.",
                 "--codex-bin",
                 "./fake codex",
                 "--max-iterations",
@@ -673,6 +682,8 @@ class RunnerIntegrationTests(unittest.TestCase):
                 "1",
                 "--verifiers",
                 "2",
+                "--exhibit-file",
+                "AI_CHANGELOG.html",
             ]
             result = subprocess.run(
                 command, cwd=root, text=True, capture_output=True, timeout=30
@@ -692,7 +703,184 @@ class RunnerIntegrationTests(unittest.TestCase):
             self.assertIn("## Resume", summary)
             self.assertIn(f"--state-root {root / 'state'}", summary)
             self.assertIn(f"--codex-bin '{fake}'", summary)
+            self.assertIn("--exhibit-file AI_CHANGELOG.html", summary)
+            self.assertIn("--exhibit-task-key", summary)
             self.assertEqual(response["group"]["status"], "complete")
+            self.assertEqual(
+                (repo / "program.txt").read_text(encoding="utf-8"),
+                "stable\nstatus: ready\n",
+            )
+            exhibit = repo / "AI_CHANGELOG.html"
+            self.assertTrue(exhibit.is_file())
+            exhibit_text = exhibit.read_text(encoding="utf-8")
+            self.assertIn(
+                "Add a clear readiness status to the fixture program.", exhibit_text
+            )
+            self.assertIn(
+                "Added a clear ready status to the fixture output.", exhibit_text
+            )
+            self.assertEqual(response["exhibit"]["status"], "answered")
+
+    def test_managed_runner_auto_detects_exhibit_and_honors_opt_out(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            fake = root / "fake-codex"
+            fake.write_text(
+                textwrap.dedent(
+                    """\
+                    #!/usr/bin/env python3
+                    import json
+                    import pathlib
+                    import sys
+
+                    args = sys.argv[1:]
+                    output = pathlib.Path(args[args.index("-o") + 1])
+                    pathlib.Path("program.txt").write_text(
+                        "before\\nafter\\n", encoding="utf-8"
+                    )
+                    payload = {
+                        "schema_version": 1,
+                        "status": "completed",
+                        "summary": "program updated",
+                        "progress": ["added the requested output"],
+                        "verification": [{"command": "inspect", "outcome": "passed"}],
+                        "decisions": [],
+                        "completion_evidence": ["program.txt contains after"],
+                        "remaining": [],
+                        "next_prompt": "",
+                        "display_request": "Add the after line.",
+                        "display_request_redacted": False,
+                        "display_changes": ["Added the requested after line."],
+                    }
+                    output.write_text(json.dumps(payload), encoding="utf-8")
+                    print(json.dumps({
+                        "type": "thread.started",
+                        "thread_id": "00000000-0000-0000-0000-000000000002"
+                    }))
+                    print(json.dumps({
+                        "type": "turn.completed",
+                        "usage": {
+                            "input_tokens": 1,
+                            "cached_input_tokens": 0,
+                            "output_tokens": 1
+                        }
+                    }))
+                    """
+                ),
+                encoding="utf-8",
+            )
+            fake.chmod(0o755)
+
+            def make_repo(name: str) -> Path:
+                repo = root / name
+                repo.mkdir()
+                subprocess.run(
+                    ["git", "init", "-b", "main"],
+                    cwd=repo,
+                    check=True,
+                    capture_output=True,
+                )
+                subprocess.run(
+                    ["git", "config", "user.email", "ciduxx@example.invalid"],
+                    cwd=repo,
+                    check=True,
+                )
+                subprocess.run(
+                    ["git", "config", "user.name", "Ciduxx Test"],
+                    cwd=repo,
+                    check=True,
+                )
+                (repo / "program.txt").write_text("before\n", encoding="utf-8")
+                with mock.patch.dict(
+                    os.environ, {"XDG_STATE_HOME": str(root / "init-state")}
+                ):
+                    exhibit.init_exhibit(
+                        repo / exhibit.DEFAULT_EXHIBIT_NAME,
+                        title=f"{name} AI Change Log",
+                    )
+                subprocess.run(["git", "add", "."], cwd=repo, check=True)
+                subprocess.run(
+                    ["git", "commit", "-m", "fixture"],
+                    cwd=repo,
+                    check=True,
+                    capture_output=True,
+                )
+                return repo
+
+            auto_repo = make_repo("auto")
+            auto_result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "ciduxx.py"),
+                    "--state-root",
+                    str(root / "auto-state"),
+                    "run",
+                    "--workspace",
+                    str(auto_repo),
+                    "--objective",
+                    "Add the after line.",
+                    "--codex-bin",
+                    str(fake),
+                    "--max-iterations",
+                    "1",
+                    "--max-hours",
+                    "1",
+                    "--turn-timeout-minutes",
+                    "1",
+                    "--verifiers",
+                    "0",
+                ],
+                cwd=root,
+                text=True,
+                capture_output=True,
+                timeout=30,
+            )
+            self.assertEqual(
+                auto_result.returncode, 0, auto_result.stderr + auto_result.stdout
+            )
+            auto_data = exhibit.read_exhibit(
+                auto_repo / exhibit.DEFAULT_EXHIBIT_NAME
+            )
+            self.assertEqual(len(auto_data["turns"]), 1)
+
+            opted_out_repo = make_repo("opted-out")
+            opted_out_file = opted_out_repo / exhibit.DEFAULT_EXHIBIT_NAME
+            before = opted_out_file.read_bytes()
+            opted_out_result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "ciduxx.py"),
+                    "--state-root",
+                    str(root / "opted-out-state"),
+                    "run",
+                    "--workspace",
+                    str(opted_out_repo),
+                    "--objective",
+                    "Add the after line.",
+                    "--codex-bin",
+                    str(fake),
+                    "--max-iterations",
+                    "1",
+                    "--max-hours",
+                    "1",
+                    "--turn-timeout-minutes",
+                    "1",
+                    "--verifiers",
+                    "0",
+                    "--no-exhibit",
+                ],
+                cwd=root,
+                text=True,
+                capture_output=True,
+                timeout=30,
+            )
+            self.assertEqual(
+                opted_out_result.returncode,
+                0,
+                opted_out_result.stderr + opted_out_result.stdout,
+            )
+            self.assertEqual(opted_out_file.read_bytes(), before)
+            self.assertIsNone(json.loads(opted_out_result.stdout)["exhibit"])
 
 
 if __name__ == "__main__":
