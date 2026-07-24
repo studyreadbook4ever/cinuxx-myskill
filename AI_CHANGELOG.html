@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="generator" content="ciduxx exhibit v1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; base-uri 'none'; form-action 'none'">
+  <title>cinuxx-myskill AI Change Log</title>
+<!-- CIDUXX:SKIN:BEGIN v1 -->
+<style id="ciduxx-exhibit-skin" data-ciduxx-skin="default">
+:root {
+  color-scheme: light dark;
+  --ciduxx-page-bg: #f5f6f8;
+  --ciduxx-page-fg: #202124;
+  --ciduxx-muted-fg: #6f7480;
+  --ciduxx-panel-bg: #ffffff;
+  --ciduxx-request-bg: #e9edf5;
+  --ciduxx-request-fg: #202124;
+  --ciduxx-change-bg: #1769e0;
+  --ciduxx-change-fg: #ffffff;
+  --ciduxx-border: #dfe3ea;
+  --ciduxx-radius: 18px;
+  --ciduxx-max-width: 980px;
+  --ciduxx-shadow: 0 16px 50px rgb(20 28 45 / 0.08);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  padding: 48px 20px;
+  color: var(--ciduxx-page-fg);
+  background: var(--ciduxx-page-bg);
+}
+
+.ciduxx-header,
+.ciduxx-chat,
+.ciduxx-footer {
+  width: min(100%, var(--ciduxx-max-width));
+  margin-inline: auto;
+}
+
+.ciduxx-header {
+  margin-bottom: 24px;
+}
+
+.ciduxx-eyebrow {
+  margin: 0 0 8px;
+  color: var(--ciduxx-muted-fg);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ciduxx-title {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 4rem);
+  line-height: 1;
+}
+
+.ciduxx-subtitle,
+.ciduxx-footer {
+  color: var(--ciduxx-muted-fg);
+}
+
+.ciduxx-chat {
+  padding: clamp(18px, 4vw, 40px);
+  border: 1px solid var(--ciduxx-border);
+  border-radius: calc(var(--ciduxx-radius) + 8px);
+  background: var(--ciduxx-panel-bg);
+  box-shadow: var(--ciduxx-shadow);
+}
+
+.ciduxx-turn + .ciduxx-turn {
+  margin-top: 36px;
+  padding-top: 36px;
+  border-top: 1px solid var(--ciduxx-border);
+}
+
+.ciduxx-message-row {
+  display: flex;
+  margin: 10px 0;
+}
+
+.ciduxx-message-row--request {
+  justify-content: flex-start;
+}
+
+.ciduxx-message-row--change {
+  justify-content: flex-end;
+}
+
+.ciduxx-message {
+  width: min(82%, 700px);
+  padding: 14px 17px;
+  border-radius: var(--ciduxx-radius);
+}
+
+.ciduxx-message--request {
+  color: var(--ciduxx-request-fg);
+  background: var(--ciduxx-request-bg);
+  border-bottom-left-radius: 5px;
+}
+
+.ciduxx-message--change {
+  color: var(--ciduxx-change-fg);
+  background: var(--ciduxx-change-bg);
+  border-bottom-right-radius: 5px;
+}
+
+.ciduxx-message--pending {
+  opacity: 0.7;
+}
+
+.ciduxx-message__meta,
+.ciduxx-message__time {
+  display: block;
+  font-size: 0.72rem;
+  opacity: 0.72;
+}
+
+.ciduxx-message__meta {
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.ciduxx-message__text {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.ciduxx-message__time {
+  margin-top: 8px;
+}
+
+.ciduxx-empty {
+  padding: 48px 16px;
+  color: var(--ciduxx-muted-fg);
+  text-align: center;
+}
+
+.ciduxx-footer {
+  margin-top: 18px;
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ciduxx-page-bg: #111318;
+    --ciduxx-page-fg: #f4f5f7;
+    --ciduxx-muted-fg: #a9aeb8;
+    --ciduxx-panel-bg: #191c22;
+    --ciduxx-request-bg: #292e38;
+    --ciduxx-request-fg: #f4f5f7;
+    --ciduxx-change-bg: #367fe8;
+    --ciduxx-border: #303641;
+    --ciduxx-shadow: 0 16px 50px rgb(0 0 0 / 0.25);
+  }
+}
+
+@media (max-width: 640px) {
+  body {
+    padding: 24px 12px;
+  }
+
+  .ciduxx-chat {
+    padding: 16px 12px;
+  }
+
+  .ciduxx-message {
+    width: 92%;
+  }
+}
+</style>
+<!-- CIDUXX:SKIN:END -->
+</head>
+<body>
+  <header class="ciduxx-header">
+    <p class="ciduxx-eyebrow">Semantic change exhibit</p>
+    <h1 class="ciduxx-title">cinuxx-myskill AI Change Log</h1>
+    <p class="ciduxx-subtitle"><span data-role="turn-count">1</span> conversation turn(s)</p>
+  </header>
+<main class="ciduxx-chat" data-role="conversation" data-schema-version="1">
+  <article class="ciduxx-turn" data-turn-id="turn-0ccdbf5f13ae" data-status="answered">
+    <div class="ciduxx-message-row ciduxx-message-row--request">
+      <section class="ciduxx-message ciduxx-message--request" data-role="request" aria-label="Human request">
+        <div class="ciduxx-message__meta">You</div>
+        <div class="ciduxx-message__text">ciduxx-myskill에 사람이 요청한 수정과 에이전트가 실제로 반영한 내용을 대화형 전시 화면으로 자동 축적해줘. 결과는 오픈소스 저장소의 HTML 한 파일이어야 하고 Codex와 Claude에서 함께 쓸 수 있으며 디자인은 나중에 확장할 수 있어야 해.</div>
+        <time class="ciduxx-message__time" datetime="2026-07-24T13:17:17+00:00">2026-07-24T13:17:17+00:00</time>
+      </section>
+    </div>
+    <div class="ciduxx-message-row ciduxx-message-row--change">
+      <section class="ciduxx-message ciduxx-message--change" data-role="change" data-change-id="chg-9a0c83f165c8" aria-label="Implemented change">
+        <div class="ciduxx-message__meta">Codex</div>
+        <div class="ciduxx-message__text">AI_CHANGELOG.html 한 파일 안에 요청은 왼쪽, 검증된 자연어 변경 설명은 오른쪽에 묶어 누적되는 독립 실행형 전시 화면을 추가했습니다.</div>
+        <time class="ciduxx-message__time" datetime="2026-07-24T13:17:17+00:00">2026-07-24T13:17:17+00:00</time>
+      </section>
+    </div>
+    <div class="ciduxx-message-row ciduxx-message-row--change">
+      <section class="ciduxx-message ciduxx-message--change" data-role="change" data-change-id="chg-45afc2dc898b" aria-label="Implemented change">
+        <div class="ciduxx-message__meta">Codex</div>
+        <div class="ciduxx-message__text">Codex와 Claude Code가 같은 구조화 입력을 사용하고, 에이전트가 구현과 검증 뒤 직접 기록하도록 이식 가능한 안내와 작업 흐름을 마련했습니다.</div>
+        <time class="ciduxx-message__time" datetime="2026-07-24T13:17:17+00:00">2026-07-24T13:17:17+00:00</time>
+      </section>
+    </div>
+    <div class="ciduxx-message-row ciduxx-message-row--change">
+      <section class="ciduxx-message ciduxx-message--change" data-role="change" data-change-id="chg-c9a32b67e53b" aria-label="Implemented change">
+        <div class="ciduxx-message__meta">Codex</div>
+        <div class="ciduxx-message__text">관리형 작업이 기존 전시 파일을 자동 감지하고, 부분 완료 뒤 재개해도 같은 요청 항목을 갱신하도록 연결했습니다.</div>
+        <time class="ciduxx-message__time" datetime="2026-07-24T13:17:17+00:00">2026-07-24T13:17:17+00:00</time>
+      </section>
+    </div>
+    <div class="ciduxx-message-row ciduxx-message-row--change">
+      <section class="ciduxx-message ciduxx-message--change" data-role="change" data-change-id="chg-ff08cd9f28c5" aria-label="Implemented change">
+        <div class="ciduxx-message__meta">Codex</div>
+        <div class="ciduxx-message__text">대화 내용과 CSS 스킨을 논리적으로 분리해 새 기록에도 사용자 스킨이 보존되고 기본 디자인을 교체할 수 있게 했습니다.</div>
+        <time class="ciduxx-message__time" datetime="2026-07-24T13:17:17+00:00">2026-07-24T13:17:17+00:00</time>
+      </section>
+    </div>
+    <div class="ciduxx-message-row ciduxx-message-row--change">
+      <section class="ciduxx-message ciduxx-message--change" data-role="change" data-change-id="chg-02bdcafcb637" aria-label="Implemented change">
+        <div class="ciduxx-message__meta">Codex</div>
+        <div class="ciduxx-message__text">동시 기록, 재시도 중복 방지, 원자적 저장, 변조·스크립트 삽입 방어, 모바일 표시를 자동 테스트와 실제 브라우저로 검증했습니다.</div>
+        <time class="ciduxx-message__time" datetime="2026-07-24T13:17:17+00:00">2026-07-24T13:17:17+00:00</time>
+      </section>
+    </div>
+  </article>
+</main>
+  <footer class="ciduxx-footer">
+    Last updated <time datetime="2026-07-24T13:17:17+00:00">2026-07-24T13:17:17+00:00</time>
+  </footer>
+<!-- CIDUXX:DATA:BEGIN v1 -->
+<script id="ciduxx-exhibit-data" type="application/json">
+{
+  "document": {
+    "created_at": "2026-07-24T13:17:17+00:00",
+    "id": "doc-42f244192c2d",
+    "revision": 1,
+    "skin": {
+      "name": "default"
+    },
+    "title": "cinuxx-myskill AI Change Log",
+    "updated_at": "2026-07-24T13:17:17+00:00"
+  },
+  "kind": "ciduxx.semantic-change-exhibit",
+  "schema_version": 1,
+  "turns": [
+    {
+      "agent": {
+        "client": "codex",
+        "display_name": "Codex"
+      },
+      "answered_at": "2026-07-24T13:17:17+00:00",
+      "changes": [
+        {
+          "id": "chg-9a0c83f165c8",
+          "recorded_at": "2026-07-24T13:17:17+00:00",
+          "sequence": 1,
+          "text": "AI_CHANGELOG.html 한 파일 안에 요청은 왼쪽, 검증된 자연어 변경 설명은 오른쪽에 묶어 누적되는 독립 실행형 전시 화면을 추가했습니다."
+        },
+        {
+          "id": "chg-45afc2dc898b",
+          "recorded_at": "2026-07-24T13:17:17+00:00",
+          "sequence": 2,
+          "text": "Codex와 Claude Code가 같은 구조화 입력을 사용하고, 에이전트가 구현과 검증 뒤 직접 기록하도록 이식 가능한 안내와 작업 흐름을 마련했습니다."
+        },
+        {
+          "id": "chg-c9a32b67e53b",
+          "recorded_at": "2026-07-24T13:17:17+00:00",
+          "sequence": 3,
+          "text": "관리형 작업이 기존 전시 파일을 자동 감지하고, 부분 완료 뒤 재개해도 같은 요청 항목을 갱신하도록 연결했습니다."
+        },
+        {
+          "id": "chg-ff08cd9f28c5",
+          "recorded_at": "2026-07-24T13:17:17+00:00",
+          "sequence": 4,
+          "text": "대화 내용과 CSS 스킨을 논리적으로 분리해 새 기록에도 사용자 스킨이 보존되고 기본 디자인을 교체할 수 있게 했습니다."
+        },
+        {
+          "id": "chg-02bdcafcb637",
+          "recorded_at": "2026-07-24T13:17:17+00:00",
+          "sequence": 5,
+          "text": "동시 기록, 재시도 중복 방지, 원자적 저장, 변조·스크립트 삽입 방어, 모바일 표시를 자동 테스트와 실제 브라우저로 검증했습니다."
+        }
+      ],
+      "id": "turn-0ccdbf5f13ae",
+      "idempotency_key": "cinuxx-semantic-exhibit-v1",
+      "request": {
+        "redacted": false,
+        "text": "ciduxx-myskill에 사람이 요청한 수정과 에이전트가 실제로 반영한 내용을 대화형 전시 화면으로 자동 축적해줘. 결과는 오픈소스 저장소의 HTML 한 파일이어야 하고 Codex와 Claude에서 함께 쓸 수 있으며 디자인은 나중에 확장할 수 있어야 해."
+      },
+      "requested_at": "2026-07-24T13:17:17+00:00",
+      "sequence": 1,
+      "status": "answered"
+    }
+  ]
+}
+</script>
+<!-- CIDUXX:DATA:END -->
+</body>
+</html>

@@ -1,6 +1,6 @@
 ---
 name: ciduxx
-description: Run deep, persistent Linux-focused program improvement loops that repeatedly inspect, implement, verify, review, and repair until measurable completion. Use when the user explicitly invokes $ciduxx, asks for a goal-like high-token work-verify-fix loop, wants overnight unattended Codex improvement, needs material decision branches recorded as A/B/C Markdown, or wants several registered Codex sessions on one Linux PC to schedule shutdown only after every session finishes. Never infer shutdown authorization from ordinary work requests.
+description: Run deep, persistent Linux-focused program improvement loops and maintain a one-file semantic AI change exhibit. Use when the user explicitly invokes $ciduxx, asks for a high-token work-verify-fix loop, wants Codex or Claude to record human requests beside natural-language change outcomes in AI_CHANGELOG.html, needs material decisions recorded, or wants registered Codex sessions to schedule shutdown only after every session finishes. Never infer shutdown authorization from ordinary work requests.
 ---
 
 # Ciduxx
@@ -21,6 +21,34 @@ Drive a program toward a verifiable outcome through evidence-heavy improvement l
 - Use **managed runner mode** when the prompt says a ciduxx supervisor launched the turn. Perform one substantial work-verify-repair iteration, never launch another ciduxx runner, never manage power, and return the structured result required by the supplied schema.
 - Use `scripts/ciduxx.py run` only when the user requests unattended or shell-supervised execution. The runner invokes `codex exec`, resumes the same thread, writes checkpoints, and enforces finite limits.
 - Use a **session group** when several Codex sessions on the same Linux account must finish before shutdown. Every participating session must register. Unregistered Codex sessions cannot be assigned a trustworthy completion state.
+
+## Maintain The Semantic Exhibit
+
+Read [exhibit-protocol.md](references/exhibit-protocol.md) when the user requests
+an AI change exhibit or the worktree root already contains
+`AI_CHANGELOG.html`. The existing file is an opt-in marker.
+
+- For interactive work, implement and verify first, then use
+  `ciduxx exhibit record` to append one turn. If the launcher is unavailable,
+  run this skill's `scripts/ciduxx.py` with Python 3. Use `begin` and `answer`
+  only when a long task deliberately needs a pending turn.
+- Keep one display-safe human request on the left and one or more verified,
+  outcome-focused natural-language changes on the right. Group all changes
+  caused by the request in the same turn.
+- Use a stable idempotency key when available. Never duplicate a turn for an
+  internal repair iteration.
+- Do not record questions, no-change work, plans, guesses, failed attempts,
+  raw diffs, tool traces, secrets, hidden prompts, or chain-of-thought. Use a
+  safe paraphrase plus the redaction flag when needed.
+- Treat a recording failure as unfinished workflow work: diagnose it and
+  preserve the existing HTML rather than silently overwriting or skipping it.
+
+In managed runner mode, fill `display_request`,
+`display_request_redacted`, and `display_changes` with the same display-safe
+semantic content. The redaction boolean labels an already-safe paraphrase; it
+does not sanitize text. The supervisor records the final verified list when
+`--exhibit-file` is supplied or an existing root `AI_CHANGELOG.html` is
+detected. Return an empty change list when no real change was made.
 
 ## Execute Deeply
 
@@ -87,6 +115,10 @@ Run the helper with Python 3 and no third-party packages:
 python3 scripts/ciduxx.py doctor
 python3 scripts/ciduxx.py group create --name tonight --expected 3 --shutdown-on completed
 python3 scripts/ciduxx.py run --workspace /path/to/repo --objective-file goal.md --group GROUP_ID
+python3 scripts/ciduxx.py exhibit record --request "Improve search" --change "Made results easier to scan."
 ```
 
-Use `--help` for all limits and group lifecycle commands. Test power behavior only through the injected fake backend in the repository test suite; never run a real shutdown command during validation.
+Use `exhibit instructions --agent codex|claude` for a portable agent prompt and
+`--help` for every command. Test power behavior only through the injected fake
+backend in the repository test suite; never run a real shutdown command during
+validation.

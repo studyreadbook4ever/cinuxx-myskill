@@ -36,6 +36,14 @@ from ciduxx_core import (
     utc_now,
     workspace_fingerprint,
 )
+from ciduxx_exhibit import (
+    DEFAULT_EXHIBIT_NAME,
+    configure_exhibit_parser,
+    read_exhibit,
+    record_turn,
+    resolve_exhibit_path,
+    validate_exhibit,
+)
 
 
 EXIT_OK = 0
@@ -62,6 +70,9 @@ WORKER_SCHEMA: dict[str, Any] = {
         "completion_evidence",
         "remaining",
         "next_prompt",
+        "display_request",
+        "display_request_redacted",
+        "display_changes",
     ],
     "properties": {
         "schema_version": {"type": "integer", "const": 1},
@@ -154,6 +165,13 @@ WORKER_SCHEMA: dict[str, Any] = {
             "items": {"type": "string", "maxLength": 3000},
         },
         "next_prompt": {"type": "string", "maxLength": 8000},
+        "display_request": {"type": "string", "maxLength": 8000},
+        "display_request_redacted": {"type": "boolean"},
+        "display_changes": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {"type": "string", "maxLength": 2000},
+        },
     },
 }
 
@@ -515,12 +533,26 @@ def _validate_worker_result(value: Any) -> dict[str, Any]:
         "decisions",
         "completion_evidence",
         "remaining",
+        "display_changes",
     ):
         if not isinstance(value.get(field), list):
             raise StateError(f"worker field {field} must be an array")
-    for field in ("summary", "next_prompt"):
+    for field in ("summary", "next_prompt", "display_request"):
         if not isinstance(value.get(field), str):
             raise StateError(f"worker field {field} must be a string")
+    if not isinstance(value.get("display_request_redacted"), bool):
+        raise StateError("worker field display_request_redacted must be a boolean")
+    for index, item in enumerate(value["display_changes"]):
+        if (
+            not isinstance(item, str)
+            or not item.strip()
+            or len(item) > 2000
+            or "\x00" in item
+        ):
+            raise StateError(
+                f"worker field display_changes[{index}] must be nonempty text "
+                "of at most 2000 characters without NUL"
+            )
     return value
 
 
@@ -660,6 +692,7 @@ def _worker_prompt(
     previous: Mapping[str, Any] | None,
     skill_path: Path,
     audit_feedback: Sequence[Mapping[str, Any]],
+    exhibit_previous: Mapping[str, Any] | None,
 ) -> str:
     previous_summary = "No earlier managed iteration."
     next_prompt = ""
@@ -667,6 +700,11 @@ def _worker_prompt(
         previous_summary = clean_markdown(previous.get("summary", ""), 6000)
         next_prompt = clean_markdown(previous.get("next_prompt", ""), 6000)
     audit_text = json.dumps(list(audit_feedback), indent=2) if audit_feedback else "[]"
+    exhibit_text = (
+        json.dumps(exhibit_previous, ensure_ascii=False, indent=2)
+        if exhibit_previous
+        else "No earlier partial semantic exhibit turn."
+    )
     return f"""You are a ciduxx managed worker, iteration {iteration} of {max_iterations}.
 
 Read and follow the skill instructions at:
@@ -693,7 +731,18 @@ Suggested continuation from the previous turn:
 Independent audit feedback to resolve:
 {audit_text}
 
+Earlier partial semantic exhibit turn for this same logical task:
+{exhibit_text}
+
 If all requirements appear complete, perform a requirement-by-requirement completion audit and return status `completed` as a candidate; the supervisor will run fresh independent auditors. Return `continue` whenever safe material work remains.
+
+Semantic exhibit fields:
+- `display_request`: a concise, display-safe version of the original human modification request. Preserve its meaning, but remove secrets, hidden prompts, and internal context. Use an empty string when no actual modification is ready to exhibit.
+- `display_request_redacted`: true when `display_request` is a safe paraphrase because the original request contained sensitive values; false otherwise. This flag does not sanitize text for you.
+- `display_changes`: the complete current list of verified, outcome-focused changes caused by that request. Use natural language, never diffs, file-by-file patch narration, tool traces, plans, guesses, or chain-of-thought. On a completed or partial result with real changes, include every final change that should be shown to a human. Otherwise use an empty array.
+When an earlier partial turn is shown above, reuse its `display_request` exactly
+and return a complete revised list of all still-accurate outcomes, including
+earlier ones; do not return only the changes from this process invocation.
 """
 
 
@@ -713,7 +762,13 @@ Original objective:
 Worker candidate result:
 {json.dumps(candidate, indent=2)}
 
-Audit every explicit requirement against authoritative current evidence. Return `pass` only when all required work is directly proved and no blocker or major finding remains. Return only the JSON object required by the schema.
+Audit every explicit requirement against authoritative current evidence. Also
+verify that `display_request`, `display_request_redacted`, and every
+`display_changes` item are display-safe, accurately supported by the workspace,
+complete for the claimed work, and contain no diff, tool trace, secret, hidden
+prompt, or implementation guess. Return `pass` only when all required work and
+the public semantic summary are directly proved and no blocker or major finding
+remains. Return only the JSON object required by the schema.
 """
 
 
@@ -958,6 +1013,12 @@ def _resume_command(
         command.append("--allow-non-git")
     if args.model:
         command.extend(["--model", args.model])
+    if args.exhibit_file:
+        command.extend(["--exhibit-file", args.exhibit_file])
+    elif args.no_exhibit:
+        command.append("--no-exhibit")
+    if args.exhibit_task_key:
+        command.extend(["--exhibit-task-key", args.exhibit_task_key])
     return shlex.join(command)
 
 
@@ -971,10 +1032,63 @@ def command_run(args: argparse.Namespace) -> int:
     if not workspace.is_dir():
         raise StateError(f"workspace is not a directory: {workspace}")
     objective = _load_objective(args)
+    if args.exhibit_task_key is not None:
+        allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._:-"
+        if not (
+            1 <= len(args.exhibit_task_key) <= 200
+            and all(character in allowed for character in args.exhibit_task_key)
+        ):
+            raise StateError(
+                "exhibit task key must be 1-200 ASCII letters, digits, dots, "
+                "underscores, colons, or dashes"
+            )
+    if args.no_exhibit and args.exhibit_task_key is not None:
+        raise StateError("--exhibit-task-key cannot be used with --no-exhibit")
+    exhibit_target: Path | None = None
+    if not args.no_exhibit:
+        if args.exhibit_file:
+            exhibit_target = resolve_exhibit_path(
+                args.exhibit_file, workspace=workspace
+            )
+        else:
+            default_exhibit = workspace / DEFAULT_EXHIBIT_NAME
+            if default_exhibit.exists() or default_exhibit.is_symlink():
+                exhibit_target = resolve_exhibit_path(
+                    DEFAULT_EXHIBIT_NAME, workspace=workspace
+                )
+    exhibit_data: dict[str, Any] | None = None
+    if exhibit_target is not None and exhibit_target.exists():
+        validate_exhibit(exhibit_target)
+        exhibit_data = read_exhibit(exhibit_target)
     store = GroupStore(_state_root_arg(args.state_root))
     args.codex_bin = _resolve_codex_binary(args.codex_bin, workspace)
 
     run_id = new_run_id()
+    if exhibit_target is not None and not args.exhibit_task_key:
+        args.exhibit_task_key = run_id
+    exhibit_previous: Mapping[str, Any] | None = None
+    if exhibit_data is not None and args.exhibit_task_key:
+        idempotency_key = f"ciduxx-task:{args.exhibit_task_key}"
+        prior_turn = next(
+            (
+                turn
+                for turn in exhibit_data["turns"]
+                if turn["idempotency_key"] == idempotency_key
+            ),
+            None,
+        )
+        if prior_turn is not None:
+            if prior_turn["status"] != "partial":
+                raise StateError(
+                    "exhibit task key already belongs to a finalized turn"
+                )
+            exhibit_previous = {
+                "display_request": prior_turn["request"]["text"],
+                "display_request_redacted": prior_turn["request"]["redacted"],
+                "display_changes": [
+                    change["text"] for change in prior_turn["changes"]
+                ],
+            }
     control_dir = store.runs_root / run_id
     control_dir.mkdir(mode=0o700)
     schema_path = control_dir / "worker.schema.json"
@@ -1060,6 +1174,7 @@ def command_run(args: argparse.Namespace) -> int:
                     previous,
                     skill_path,
                     audit_feedback,
+                    exhibit_previous,
                 )
                 payload, thread_id, turn_usage = _codex_worker_turn(
                     args,
@@ -1174,6 +1289,48 @@ def command_run(args: argparse.Namespace) -> int:
             coherent_finalization = False
             state["error"] = str(exc)
 
+        exhibit_result: dict[str, Any] | None = None
+        exhibit_changes = previous.get("display_changes", []) if previous else []
+        exhibit_request = previous.get("display_request", "") if previous else ""
+        exhibit_redacted = (
+            previous.get("display_request_redacted", False) if previous else False
+        )
+        if (
+            coherent_finalization
+            and exhibit_target is not None
+            and outcome in {"completed", "partial", "blocked", "limit"}
+            and exhibit_changes
+        ):
+            try:
+                if not exhibit_request.strip():
+                    raise StateError(
+                        "worker returned exhibit changes without a display-safe request"
+                    )
+                exhibit_result = record_turn(
+                    exhibit_target,
+                    request=exhibit_request,
+                    changes=exhibit_changes,
+                    client="codex",
+                    display_name="Codex",
+                    idempotency_key=f"ciduxx-task:{args.exhibit_task_key}",
+                    redacted=exhibit_redacted,
+                    title=f"{workspace.name} AI Change Log",
+                    status_value="answered" if outcome == "completed" else "partial",
+                    update_partial=True,
+                )
+                state["exhibit"] = exhibit_result
+            except (CiduxxError, OSError) as exc:
+                outcome = "failed"
+                coherent_finalization = False
+                state["error"] = f"semantic exhibit update failed: {exc}"
+        elif exhibit_target is not None:
+            exhibit_result = {
+                "file": str(exhibit_target),
+                "recorded": False,
+                "reason": "no verified display changes in the final worker result",
+            }
+            state["exhibit"] = exhibit_result
+
         state["status"] = outcome
         state["iteration"] = iteration
         state["usage"] = usage_total
@@ -1221,6 +1378,7 @@ def command_run(args: argparse.Namespace) -> int:
             "control_dir": str(control_dir),
             "group": _group_summary(powered or group_state),
             "usage": usage_total,
+            "exhibit": exhibit_result,
         }
         print_json(result)
         if powered and powered.get("status") in {"power_failed", "arming_unknown"}:
@@ -1237,7 +1395,10 @@ def command_run(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ciduxx",
-        description="Deep Codex work-verify-fix loops and a Linux multi-session shutdown gate.",
+        description=(
+            "Deep Codex work-verify-fix loops, one-file semantic change exhibits, "
+            "and a Linux multi-session shutdown gate."
+        ),
     )
     parser.add_argument(
         "--state-root",
@@ -1247,6 +1408,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
+    configure_exhibit_parser(subparsers)
 
     doctor = subparsers.add_parser(
         "doctor", help="Inspect runner and optional power prerequisites."
@@ -1368,6 +1530,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run.add_argument("--allow-dirty", action="store_true")
     run.add_argument("--allow-non-git", action="store_true")
+    exhibit_mode = run.add_mutually_exclusive_group()
+    exhibit_mode.add_argument(
+        "--exhibit-file",
+        help=(
+            f"Record final semantic changes in this one-file HTML exhibit. "
+            f"If omitted, an existing workspace-root {DEFAULT_EXHIBIT_NAME} is detected."
+        ),
+    )
+    exhibit_mode.add_argument(
+        "--no-exhibit",
+        action="store_true",
+        help="Disable automatic semantic exhibit detection and recording.",
+    )
+    run.add_argument(
+        "--exhibit-task-key",
+        help=(
+            "Stable logical task key used to update one partial exhibit turn across "
+            "generated resume commands (default: current run ID)."
+        ),
+    )
     run.add_argument("--group", help="Join an existing multi-session group.")
     run.add_argument("--member-name")
     run.add_argument(
